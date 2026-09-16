@@ -12,9 +12,8 @@ from typing import Optional, List
 from pathlib import Path
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
@@ -45,19 +44,16 @@ REPORTS_DIR = Path("reports")
 UPLOAD_DIR.mkdir(exist_ok=True)
 REPORTS_DIR.mkdir(exist_ok=True)
 
-# Servir arquivos estáticos (index.html, etc)
-# Criar diretório static se não existir
-STATIC_DIR = Path("static")
-STATIC_DIR.mkdir(exist_ok=True)
-
-# Se index.html estiver na raiz, copie para static/
-index_path = Path("index.html")
-if index_path.exists():
-    import shutil
-    shutil.copy(index_path, STATIC_DIR / "index.html")
-
-# Mount static files
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+# Ler index.html uma única vez no startup
+HTML_CONTENT = None
+def load_html():
+    global HTML_CONTENT
+    html_path = Path("index.html")
+    if html_path.exists():
+        with open(html_path, "r", encoding="utf-8") as f:
+            HTML_CONTENT = f.read()
+    else:
+        HTML_CONTENT = "<h1>Dashboard não encontrado</h1>"
 
 # =========================================================================
 # MODELOS DE DADOS
@@ -386,16 +382,12 @@ async def gerar_pdf(simulacao_id: str):
 # SERVIR FRONTEND (index.html)
 # =========================================================================
 
-@app.get("/")
+@app.get("/", response_class=FileResponse)
 async def serve_frontend():
     """Serve o dashboard HTML"""
-    index_file = STATIC_DIR / "index.html"
-    if index_file.exists():
-        return FileResponse(index_file, media_type="text/html")
-    # Fallback: se não estiver em static, tenta na raiz
-    root_index = Path("index.html")
-    if root_index.exists():
-        return FileResponse(root_index, media_type="text/html")
+    if HTML_CONTENT:
+        from fastapi.responses import HTMLResponse
+        return HTMLResponse(content=HTML_CONTENT, status_code=200)
     return JSONResponse(
         status_code=404,
         content={"erro": "index.html não encontrado"}
@@ -407,9 +399,14 @@ async def serve_frontend():
 
 @app.on_event("startup")
 async def startup_event():
+    load_html()  # Carregar HTML no startup
     print("✅ Motor de Decisão Tributária — API iniciada")
     print(f"📁 Upload dir: {UPLOAD_DIR.absolute()}")
     print(f"📁 Reports dir: {REPORTS_DIR.absolute()}")
+    if HTML_CONTENT:
+        print("✅ Dashboard HTML carregado com sucesso")
+    else:
+        print("⚠️ AVISO: index.html não encontrado")
 
 if __name__ == "__main__":
     import uvicorn
