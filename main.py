@@ -14,6 +14,7 @@ from pathlib import Path
 from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
@@ -43,6 +44,20 @@ UPLOAD_DIR = Path("uploads")
 REPORTS_DIR = Path("reports")
 UPLOAD_DIR.mkdir(exist_ok=True)
 REPORTS_DIR.mkdir(exist_ok=True)
+
+# Servir arquivos estáticos (index.html, etc)
+# Criar diretório static se não existir
+STATIC_DIR = Path("static")
+STATIC_DIR.mkdir(exist_ok=True)
+
+# Se index.html estiver na raiz, copie para static/
+index_path = Path("index.html")
+if index_path.exists():
+    import shutil
+    shutil.copy(index_path, STATIC_DIR / "index.html")
+
+# Mount static files
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 # =========================================================================
 # MODELOS DE DADOS
@@ -361,6 +376,29 @@ async def gerar_pdf(simulacao_id: str):
             "mensagem": "Geração de PDF será implementada na Fase 2",
             "simulacao_id": simulacao_id
         }
+    )
+
+# =========================================================================
+# STARTUP
+# =========================================================================
+
+# =========================================================================
+# SERVIR FRONTEND (index.html)
+# =========================================================================
+
+@app.get("/")
+async def serve_frontend():
+    """Serve o dashboard HTML"""
+    index_file = STATIC_DIR / "index.html"
+    if index_file.exists():
+        return FileResponse(index_file, media_type="text/html")
+    # Fallback: se não estiver em static, tenta na raiz
+    root_index = Path("index.html")
+    if root_index.exists():
+        return FileResponse(root_index, media_type="text/html")
+    return JSONResponse(
+        status_code=404,
+        content={"erro": "index.html não encontrado"}
     )
 
 # =========================================================================
