@@ -382,16 +382,12 @@ async def gerar_pdf(simulacao_id: str):
 # SERVIR FRONTEND (index.html)
 # =========================================================================
 
-@app.get("/", response_class=FileResponse)
+@app.get("/")
 async def serve_frontend():
     """Serve o dashboard HTML"""
     if HTML_CONTENT:
-        from fastapi.responses import HTMLResponse
-        return HTMLResponse(content=HTML_CONTENT, status_code=200)
-    return JSONResponse(
-        status_code=404,
-        content={"erro": "index.html não encontrado"}
-    )
+        return HTMLResponse(content=HTML_CONTENT)
+    return HTMLResponse(content="<h1>Erro: index.html não encontrado</h1>", status_code=404)
 
 # =========================================================================
 # STARTUP
