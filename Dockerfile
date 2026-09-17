@@ -22,6 +22,9 @@ COPY main.py .
 COPY index.html .
 COPY pdf_parser.py .
 
+# Copiar arquivos estáticos (dados da empresa, etc)
+COPY static/ static/
+
 # Criar diretórios
 RUN mkdir -p uploads reports static
 
