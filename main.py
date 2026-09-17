@@ -1,21 +1,31 @@
 """
 Motor de Decisão Tributária — FastAPI Backend
-Versão: 0.4.0
+Versão: 0.5.0
 Descrição: API REST para análise tributária com upload de PDFs e cálculos
+Com suporte a extração automática de dados de documentos fiscais
 """
 
 import os
 import json
 import uuid
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from pathlib import Path
+import shutil
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
+
+# Importar o parser de PDFs
+try:
+    from pdf_parser import PDFParser, ParserPGDAS, ParserAcompanhamento, processar_pdf
+    PDF_PARSER_AVAILABLE = True
+except ImportError:
+    PDF_PARSER_AVAILABLE = False
+    print("⚠️ AVISO: pdf_parser.py não encontrado. Funcionalidade de upload desativada.")
 
 # =========================================================================
 # CONFIGURAÇÃO
@@ -108,6 +118,22 @@ class ResultadoSimulacao(BaseModel):
     clientes: List[Cliente]
     observacoes: List[str]
 
+class DadosExtraidos(BaseModel):
+    """Dados extraídos de um documento PDF"""
+    arquivo: str
+    tipo: str
+    sucesso: bool
+    dados: Dict[str, Any] = {}
+    erro: Optional[str] = None
+    timestamp: str = None
+
+class RespostaUpload(BaseModel):
+    """Resposta do upload de PDFs"""
+    upload_id: str
+    arquivos_recebidos: List[str]
+    status: str
+    timestamp: str
+
 # =========================================================================
 # ROTAS
 # =========================================================================
@@ -133,6 +159,12 @@ async def upload_arquivos(
     - arquivos_recebidos: lista de nomes
     - status: "pendente_processamento"
     """
+    if not PDF_PARSER_AVAILABLE:
+        raise HTTPException(
+            status_code=503,
+            detail="Funcionalidade de PDF desativada. pdf_parser não está disponível."
+        )
+
     upload_id = str(uuid.uuid4())
     upload_subdir = UPLOAD_DIR / upload_id
     upload_subdir.mkdir(exist_ok=True)
@@ -162,6 +194,88 @@ async def upload_arquivos(
             "status": "pendente_processamento",
             "timestamp": datetime.now().isoformat()
         }
+    )
+
+@app.post("/api/processar-pdfs")
+async def processar_pdfs_endpoint(upload_id: str):
+    """
+    Processa PDFs de um upload e extrai dados estruturados
+
+    Retorna lista de dados extraídos de cada documento
+    """
+    if not PDF_PARSER_AVAILABLE:
+        raise HTTPException(
+            status_code=503,
+            detail="Funcionalidade de PDF desativada."
+        )
+
+    upload_subdir = UPLOAD_DIR / upload_id
+
+    if not upload_subdir.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"Upload com ID {upload_id} não encontrado"
+        )
+
+    arquivos_pdf = list(upload_subdir.glob("*.pdf"))
+
+    if not arquivos_pdf:
+        raise HTTPException(
+            status_code=400,
+            detail="Nenhum arquivo PDF encontrado no upload"
+        )
+
+    resultados_extracao = []
+
+    for arquivo_pdf in arquivos_pdf:
+        try:
+            resultado = processar_pdf(str(arquivo_pdf))
+            resultado['timestamp'] = datetime.now().isoformat()
+            resultados_extracao.append(resultado)
+        except Exception as e:
+            resultados_extracao.append({
+                'arquivo': arquivo_pdf.name,
+                'sucesso': False,
+                'erro': str(e),
+                'timestamp': datetime.now().isoformat()
+            })
+
+    # Salvar resultados da extração
+    extracao_path = REPORTS_DIR / f"extracao_{upload_id}.json"
+    with open(extracao_path, "w", encoding="utf-8") as f:
+        json.dump(resultados_extracao, f, ensure_ascii=False, indent=2, default=str)
+
+    return JSONResponse(
+        status_code=200,
+        content={
+            "upload_id": upload_id,
+            "total_arquivos": len(arquivos_pdf),
+            "sucessos": len([r for r in resultados_extracao if r.get('sucesso', False)]),
+            "erros": len([r for r in resultados_extracao if not r.get('sucesso', True)]),
+            "dados_extraidos": resultados_extracao,
+            "timestamp": datetime.now().isoformat()
+        }
+    )
+
+@app.get("/api/dados-extraidos/{upload_id}")
+async def obter_dados_extraidos(upload_id: str):
+    """
+    Obtém dados extraídos de um upload processado
+    """
+    extracao_path = REPORTS_DIR / f"extracao_{upload_id}.json"
+
+    if not extracao_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"Dados extraídos para upload {upload_id} não encontrados"
+        )
+
+    with open(extracao_path, "r", encoding="utf-8") as f:
+        dados = json.load(f)
+
+    return JSONResponse(
+        status_code=200,
+        content=dados
     )
 
 @app.post("/api/calcular")
