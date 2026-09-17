@@ -58,9 +58,43 @@
 
         <div id="upload" class="tab-content active">
             <h2>Upload de Documentos PDF</h2>
-            <p style="margin-bottom: 20px; color: #666;">Faça upload dos documentos: PGDAS-D, Entradas, Saídas e Serviços</p>
-            <div class="alert alert-info">⚠️ Funcionalidade de upload de PDF será implementada na Fase 2</div>
-            <p>Por enquanto, use a aba "Dados Manuais" para preencher os dados.</p>
+            <p style="margin-bottom: 20px; color: #666;">Faça upload dos documentos: PGDAS-D, Entradas, Saídas, Serviços e Relação de Fornecedores/Clientes</p>
+
+            <div class="alert alert-info">ℹ️ Arraste os PDFs aqui ou clique para selecionar</div>
+
+            <div id="uploadArea" class="upload-area">
+                <div style="font-size: 3em; margin-bottom: 10px;">📁</div>
+                <h3>Arraste seus PDFs aqui</h3>
+                <p style="color: #666; margin-bottom: 15px;">ou clique para abrir o seletor de arquivos</p>
+                <input type="file" id="fileInput" multiple accept=".pdf" style="display: none;">
+                <button class="btn-primary" onclick="document.getElementById('fileInput').click()">Selecionar Arquivos</button>
+            </div>
+
+            <div id="uploadStatus" style="display: none; margin-top: 20px;">
+                <div class="alert alert-info">
+                    📤 Upload em andamento... <span id="uploadProgress">0%</span>
+                </div>
+            </div>
+
+            <div id="processingStatus" style="display: none; margin-top: 20px;">
+                <div class="alert alert-info">
+                    🔄 Processando PDFs... Extraindo dados...
+                </div>
+            </div>
+
+            <div id="extractedData" style="display: none; margin-top: 30px;">
+                <h3>Dados Extraídos</h3>
+                <div id="extractedDataContent"></div>
+                <div class="button-group" style="margin-top: 30px;">
+                    <button class="btn-primary" onclick="usarDadosExtraidos()">✅ Usar Dados Extraídos</button>
+                    <button class="btn-secondary" onclick="novoUpload()">📤 Novo Upload</button>
+                </div>
+            </div>
+
+            <div id="uploadError" style="display: none; margin-top: 20px;">
+                <div class="alert alert-error" id="uploadErrorMsg"></div>
+                <button class="btn-secondary" onclick="novoUpload()">Tentar Novamente</button>
+            </div>
         </div>
 
         <div id="manual" class="tab-content">
@@ -138,12 +172,281 @@
 
     <script>
         const API_BASE = `${window.location.protocol}//${window.location.hostname}/api`;
+        let currentUploadId = null;
+        let currentExtractedData = null;
 
         function mostrarAba(abaId, button) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.tab-button').forEach(el => el.classList.remove('active'));
             document.getElementById(abaId).classList.add('active');
             if (button) button.classList.add('active');
+        }
+
+        // ===== UPLOAD DE PDFs =====
+
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.style.background = '#e0e0ff';
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.style.background = '#f8f9fa';
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.style.background = '#f8f9fa';
+            const files = e.dataTransfer.files;
+            handleFiles(files);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+
+        async function handleFiles(files) {
+            if (files.length === 0) return;
+
+            const formData = new FormData();
+            for (let file of files) {
+                if (!file.name.endsWith('.pdf')) {
+                    alert(`Arquivo ${file.name} não é PDF. Por favor selecione apenas PDFs.`);
+                    return;
+                }
+                formData.append('files', file);
+            }
+
+            // Mostrar status de upload
+            document.getElementById('uploadArea').style.display = 'none';
+            document.getElementById('uploadStatus').style.display = 'block';
+            document.getElementById('extractedData').style.display = 'none';
+            document.getElementById('uploadError').style.display = 'none';
+
+            try {
+                // 1. Fazer upload dos arquivos
+                const uploadResponse = await fetch(`${API_BASE}/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!uploadResponse.ok) {
+                    throw new Error('Erro no upload dos arquivos');
+                }
+
+                const uploadData = await uploadResponse.json();
+                currentUploadId = uploadData.upload_id;
+                document.getElementById('uploadProgress').textContent = '100%';
+
+                // 2. Processar PDFs
+                document.getElementById('uploadStatus').style.display = 'none';
+                document.getElementById('processingStatus').style.display = 'block';
+
+                const processingResponse = await fetch(`${API_BASE}/processar-pdfs?upload_id=${currentUploadId}`, {
+                    method: 'POST'
+                });
+
+                if (!processingResponse.ok) {
+                    throw new Error('Erro no processamento dos PDFs');
+                }
+
+                const processingData = await processingResponse.json();
+
+                // 3. Mostrar dados extraídos
+                document.getElementById('processingStatus').style.display = 'none';
+                mostrarDadosExtraidos(processingData.dados_extraidos);
+
+            } catch (error) {
+                document.getElementById('uploadStatus').style.display = 'none';
+                document.getElementById('processingStatus').style.display = 'none';
+                document.getElementById('uploadError').style.display = 'block';
+                document.getElementById('uploadErrorMsg').textContent = `❌ Erro: ${error.message}`;
+            }
+        }
+
+        function mostrarDadosExtraidos(dados) {
+            currentExtractedData = dados;
+
+            const conteudo = dados.map(doc => {
+                if (!doc.sucesso) {
+                    return `
+                        <div class="alert alert-error" style="margin-bottom: 15px;">
+                            <strong>${doc.arquivo}</strong> — Erro: ${doc.erro}
+                        </div>
+                    `;
+                }
+
+                let html = `
+                    <div style="background: #f5f5f5; padding: 15px; border-radius: 6px; margin-bottom: 15px;">
+                        <h4>${doc.arquivo}</h4>
+                        <p><strong>Tipo:</strong> ${doc.tipo}</p>
+                `;
+
+                if (doc.tipo === 'PGDAS' && doc.dados) {
+                    html += `
+                        <p><strong>CNPJ:</strong> ${doc.dados.cnpj || '—'}</p>
+                        <p><strong>Razão Social:</strong> ${doc.dados.razao_social || '—'}</p>
+                        <p><strong>RBT12:</strong> R$ ${parseFloat(doc.dados.rbt12 || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>
+                        <p><strong>DAS:</strong> R$ ${parseFloat(doc.dados.das || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>
+                        <p><strong>Período:</strong> ${doc.dados.periodo || '—'}</p>
+                    `;
+                } else if (['ENTRADA', 'SAIDA', 'SERVICO'].includes(doc.tipo) && doc.dados) {
+                    html += `
+                        <p><strong>Período:</strong> ${doc.dados.periodo || '—'}</p>
+                        <p><strong>Empresa CNPJ:</strong> ${doc.dados.empresa_cnpj || '—'}</p>
+                        <p><strong>Total:</strong> R$ ${parseFloat(doc.dados.total || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>
+                        <p><strong>Itens:</strong> ${doc.dados.itens ? doc.dados.itens.length : 0}</p>
+                    `;
+
+                    if (doc.dados.itens && doc.dados.itens.length > 0) {
+                        html += `
+                            <details style="margin-top: 10px;">
+                                <summary style="cursor: pointer; font-weight: 600;">Ver itens (${doc.dados.itens.length})</summary>
+                                <table style="width: 100%; margin-top: 10px; font-size: 0.9em;">
+                                    <thead>
+                                        <tr style="background: #e0e0e0;">
+                                            <th style="padding: 8px;">CNPJ</th>
+                                            <th style="padding: 8px;">Razão Social</th>
+                                            <th style="padding: 8px;">Valor</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                        `;
+                        doc.dados.itens.slice(0, 10).forEach(item => {
+                            html += `
+                                <tr style="border-bottom: 1px solid #ddd;">
+                                    <td style="padding: 8px;">${item.cnpj || '—'}</td>
+                                    <td style="padding: 8px;">${item.razao_social || '—'}</td>
+                                    <td style="padding: 8px;">R$ ${parseFloat(item.valor || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                                </tr>
+                            `;
+                        });
+                        if (doc.dados.itens.length > 10) {
+                            html += `<tr><td colspan="3" style="padding: 8px; text-align: center; font-weight: 600;">+ ${doc.dados.itens.length - 10} itens</td></tr>`;
+                        }
+                        html += `
+                                    </tbody>
+                                </table>
+                            </details>
+                        `;
+                    }
+                }
+
+                html += `</div>`;
+                return html;
+            }).join('');
+
+            document.getElementById('extractedDataContent').innerHTML = conteudo;
+            document.getElementById('extractedData').style.display = 'block';
+        }
+
+        function usarDadosExtraidos() {
+            if (!currentExtractedData) return;
+
+            // Extrair dados do PGDAS para preencher formulário
+            const pgdasDoc = currentExtractedData.find(d => d.tipo === 'PGDAS' && d.sucesso);
+            const entradaDoc = currentExtractedData.find(d => d.tipo === 'ENTRADA' && d.sucesso);
+            const saidaDoc = currentExtractedData.find(d => d.tipo === 'SAIDA' && d.sucesso);
+            const servicoDoc = currentExtractedData.find(d => d.tipo === 'SERVICO' && d.sucesso);
+
+            // Preencher dados da empresa
+            if (pgdasDoc && pgdasDoc.dados) {
+                document.getElementById('cnpj').value = pgdasDoc.dados.cnpj || '';
+                document.getElementById('razaoSocial').value = pgdasDoc.dados.razao_social || '';
+                document.getElementById('rbt12').value = pgdasDoc.dados.rbt12 || 0;
+                document.getElementById('das').value = pgdasDoc.dados.das || 0;
+            }
+
+            // Preparar fornecedores
+            const fornecedoresExtraidos = [];
+            if (entradaDoc && entradaDoc.dados && entradaDoc.dados.itens) {
+                entradaDoc.dados.itens.forEach(item => {
+                    fornecedoresExtraidos.push({
+                        cnpj: item.cnpj || '',
+                        razao_social: item.razao_social || '',
+                        compras: item.valor || 0
+                    });
+                });
+            }
+
+            // Preparar clientes
+            const clientesExtraidos = [];
+            if (saidaDoc && saidaDoc.dados && saidaDoc.dados.itens) {
+                saidaDoc.dados.itens.forEach(item => {
+                    clientesExtraidos.push({
+                        cnpj: item.cnpj || '',
+                        razao_social: item.razao_social || '',
+                        faturamento: item.valor || 0
+                    });
+                });
+            }
+            if (servicoDoc && servicoDoc.dados && servicoDoc.dados.itens) {
+                servicoDoc.dados.itens.forEach(item => {
+                    clientesExtraidos.push({
+                        cnpj: item.cnpj || '',
+                        razao_social: item.razao_social || '',
+                        faturamento: item.valor || 0
+                    });
+                });
+            }
+
+            // Preencher formulário
+            const fornecedoresList = document.getElementById('fornecedoresList');
+            fornecedoresList.innerHTML = fornecedoresExtraidos.map((f, i) => `
+                <div style="margin-bottom: 20px; padding: 15px; background: #f5f5f5; border-radius: 6px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+                        <div class="form-group" style="margin: 0;">
+                            <label style="font-size: 0.9em;">CNPJ</label>
+                            <input type="text" class="cnpj-fornecedor" value="${f.cnpj}">
+                        </div>
+                        <div class="form-group" style="margin: 0;">
+                            <label style="font-size: 0.9em;">Razão Social</label>
+                            <input type="text" class="razao-fornecedor" value="${f.razao_social}">
+                        </div>
+                        <div class="form-group" style="margin: 0;">
+                            <label style="font-size: 0.9em;">Compras</label>
+                            <input type="number" class="compras-fornecedor" value="${f.compras}" step="0.01">
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            const clientesList = document.getElementById('clientesList');
+            clientesList.innerHTML = clientesExtraidos.map(c => `
+                <div style="margin-bottom: 20px; padding: 15px; background: #f5f5f5; border-radius: 6px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+                        <div class="form-group" style="margin: 0;">
+                            <label style="font-size: 0.9em;">CNPJ</label>
+                            <input type="text" class="cnpj-cliente" value="${c.cnpj}">
+                        </div>
+                        <div class="form-group" style="margin: 0;">
+                            <label style="font-size: 0.9em;">Razão Social</label>
+                            <input type="text" class="razao-cliente" value="${c.razao_social}">
+                        </div>
+                        <div class="form-group" style="margin: 0;">
+                            <label style="font-size: 0.9em;">Faturamento</label>
+                            <input type="number" class="faturamento-cliente" value="${c.faturamento}" step="0.01">
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            // Ir para aba de dados manuais
+            mostrarAba('manual', document.querySelectorAll('.tab-button')[1]);
+        }
+
+        function novoUpload() {
+            currentUploadId = null;
+            currentExtractedData = null;
+            document.getElementById('uploadArea').style.display = 'block';
+            document.getElementById('uploadStatus').style.display = 'none';
+            document.getElementById('processingStatus').style.display = 'none';
+            document.getElementById('extractedData').style.display = 'none';
+            document.getElementById('uploadError').style.display = 'none';
+            fileInput.value = '';
         }
 
         function carregarExemplos() {
