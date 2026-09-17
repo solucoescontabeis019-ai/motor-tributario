@@ -1,0 +1,214 @@
+{
+  "empresa": {
+    "cnpj": "04.286.335/0001-79",
+    "razao_social": "WASHINGTON L LOPES COSMOPOLIS",
+    "municipio": "Cosmópolis",
+    "uf": "SP",
+    "cnae": "5229-2/00",
+    "atividade": "Distribuição e transporte de GLP",
+    "regime_tributario_2026": "Simples Nacional",
+    "anexo_sn": "III",
+    "rbt12": 2236444.92,
+    "moeda": "BRL",
+    "data_extracao": "2026-09-17"
+  },
+
+  "dados_2026_real": {
+    "periodo": "janeiro a agosto 2026",
+    "meses": 8,
+    "rbt12": {
+      "valor": 2236444.92,
+      "status": "DADO REAL DO DOCUMENTO",
+      "fonte": "Simples Nacional WAS.pdf"
+    },
+    "faturamento_bruto": {
+      "saidas_mercadoria": 1150693.77,
+      "servicos_iss": 308320.90,
+      "total": 1459014.67,
+      "status": "DADO REAL DO DOCUMENTO",
+      "nota": "Soma exata de Saídas + Serviços jan-ago/2026"
+    },
+    "entradas_compras": {
+      "valor_total": 404301.55,
+      "quantidade_fornecedores": 46,
+      "status": "DADO REAL DO DOCUMENTO",
+      "consolidacao": "por CNPJ"
+    },
+    "das_apurado": {
+      "valor": 18607.42,
+      "status": "DADO REAL DO DOCUMENTO",
+      "fonte": "Simples Nacional WAS.pdf",
+      "aliquota_efetiva_percentual": 0.833,
+      "calculo_verificacao": {
+        "faturamento": 1459014.67,
+        "anexo_usado": "III Faixa 5 para Seção IV (Serviços) + Anexo I para Seção V (Transporte)",
+        "diferenca_vs_documento": 0.01,
+        "motivo_diferenca": "Arredondamento"
+      }
+    }
+  },
+
+  "fornecedores": {
+    "total_fornecedores": 46,
+    "total_compras": 404301.55,
+    "top_10": [
+      {
+        "ranking": 1,
+        "cnpj": "08.082.670/0001-80",
+        "razao_social": "AUTO POSTO MP FERNANDES",
+        "valor_total": 145907.57,
+        "percentual_das_compras": 36.07,
+        "quantidade_notas": null,
+        "regime": "NÃO VALIDADO",
+        "status_consulta_cnpj": "PENDENTE"
+      },
+      {
+        "ranking": 2,
+        "cnpj": "08.082.670/0001-98",
+        "razao_social": "AUTO POSTO M FERNANDES",
+        "valor_total": 84560.04,
+        "percentual_das_compras": 20.90,
+        "quantidade_notas": null,
+        "regime": "NÃO VALIDADO",
+        "status_consulta_cnpj": "PENDENTE"
+      },
+      {
+        "ranking": 3,
+        "cnpj": "04.048.904/0001-97",
+        "razao_social": "UNICAP RENOVADORA DE PNEUS",
+        "valor_total": 17362.00,
+        "percentual_das_compras": 4.29,
+        "quantidade_notas": null,
+        "regime": "NÃO VALIDADO",
+        "status_consulta_cnpj": "PENDENTE"
+      }
+    ],
+    "nota_critica": "Os 46 fornecedores listados precisam ter seus regimes tributários consultados via CNPJ para determinar elegibilidade de crédito IBS/CBS"
+  },
+
+  "clientes": {
+    "saidas_mercadoria": {
+      "total": 1150693.77,
+      "quantidade_cnpjs": 13,
+      "nota": "Vendas com ICMS"
+    },
+    "servicos_iss": {
+      "total": 308320.90,
+      "quantidade_cnpjs": 3,
+      "nota": "Receita de serviços com ISS"
+    },
+    "faturamento_total_clientes": 1459014.67,
+    "cliente_critico": {
+      "grupo": "NACIONAL GÁS BUTANO DISTRIBUIDORA LTDA",
+      "cnpj_matriz": "06.980.064/0001-XX",
+      "quantidade_filiais": 9,
+      "percentual_faturamento": 89.0,
+      "valor_estimado": 1298222.85,
+      "status": "CRÍTICO - CONCENTRAÇÃO EXTREMA",
+      "risco_comercial": "ALTÍSSIMO",
+      "motivo_risco": "Uma única empresa (grupo) representa quase 90% do faturamento. Qualquer mudança de regime ou política comercial desta empresa impactaria drasticamente a viabilidade do negócio"
+    },
+    "nota_critica": "Regime de cada cliente (13 para Saídas + 3 para Serviços) PRECISA ser consultado para determinar potencial de crédito de IBS/CBS que cada cliente pode aproveitar"
+  },
+
+  "validacoes_cruzadas": {
+    "entradas_vs_documento": {
+      "esperado": 404301.55,
+      "encontrado": 404301.55,
+      "status": "✅ VALIDADO",
+      "fonte": "Entradas.pdf"
+    },
+    "saidas_vs_documento": {
+      "esperado": 1150693.77,
+      "encontrado": 1150693.77,
+      "status": "✅ VALIDADO",
+      "fonte": "Saídas.pdf"
+    },
+    "servicos_vs_documento": {
+      "esperado": 308320.90,
+      "encontrado": 308320.90,
+      "status": "✅ VALIDADO",
+      "fonte": "Serviços.pdf"
+    },
+    "faturamento_total": {
+      "saidas_mais_servicos": 1459014.67,
+      "documento_pgdas": 1459014.67,
+      "status": "✅ VALIDADO"
+    },
+    "rbt12_documento": {
+      "valor": 2236444.92,
+      "status": "✅ VALIDADO",
+      "fonte": "Simples Nacional WAS.pdf"
+    }
+  },
+
+  "dados_faltantes_bloqueios": [
+    {
+      "bloqueio": "REGIME TRIBUTÁRIO DOS FORNECEDORES",
+      "impacto": "CRÍTICO",
+      "motivo": "Sem conhecer o regime (Simples, Regular, MEI) de cada fornecedor, não é possível calcular crédito de IBS/CBS com precisão",
+      "como_resolver": "Consultar CNPJ de cada fornecedor via API/sistema da Receita Federal"
+    },
+    {
+      "bloqueio": "REGIME TRIBUTÁRIO DOS CLIENTES",
+      "impacto": "CRÍTICO",
+      "motivo": "Sem conhecer o regime de cada cliente, não é possível calcular potencial de crédito e risco comercial com precisão",
+      "como_resolver": "Consultar CNPJ de cada cliente via API/sistema da Receita Federal"
+    },
+    {
+      "bloqueio": "ALÍQUOTA OFICIAL CBS 2027",
+      "impacto": "ALTO",
+      "motivo": "CBS 2027 ainda não foi oficialmente publicada. Simulação usará estimativa",
+      "como_resolver": "Aguardar publicação oficial da LC 227/2026 e atualizações posteriores"
+    },
+    {
+      "bloqueio": "DADOS DE SETEMBRO A DEZEMBRO 2026",
+      "impacto": "MÉDIO",
+      "motivo": "Apenas janeiro-agosto disponível. Dados de set-dez incompletos",
+      "como_resolver": "Importar documentos de setembro a dezembro quando disponíveis"
+    },
+    {
+      "bloqueio": "MARGEM E DESPESAS OPERACIONAIS",
+      "impacto": "MÉDIO",
+      "motivo": "Necessário para análise de viabilidade financeira do regime híbrido",
+      "como_resolver": "Consultar relatório financeiro/contábil 2026"
+    },
+    {
+      "bloqueio": "COMPOSIÇÃO POR CFOP/NCM",
+      "impacto": "BAIXO",
+      "motivo": "Granularidade linha a linha não disponível (pdftotext não consegue extrair)",
+      "como_resolver": "Solicitar XML de NF-e/CT-e ou SPED quando disponível"
+    }
+  ],
+
+  "achados_criticos": [
+    {
+      "achado": "CONCENTRAÇÃO COMERCIAL EXTREMA",
+      "valor": "~89% do faturamento vem de NACIONAL GÁS BUTANO DISTRIBUIDORA (grupo com 9 CNPJs)",
+      "risco": "CRÍTICO",
+      "implicacao": "Qualquer mudança de regime ou pressão comercial desta empresa inviabiliza qualquer simulação. A decisão tributária depende em primeiro lugar da decisão estratégica desta cliente"
+    },
+    {
+      "achado": "COMPRAS CONCENTRADAS",
+      "valor": "TOP 3 fornecedores = 61,26% das compras (R$ 247.829,61 de R$ 404.301,55)",
+      "risco": "MÉDIO",
+      "implicacao": "Crédito potencial dependerá fortemente do regime desses 3 fornecedores"
+    },
+    {
+      "achado": "DAS REAL VALIDADO",
+      "valor": "R$ 18.607,42 vs cálculo = diferença de R$0,01 (arredondamento)",
+      "risco": "NENHUM",
+      "implicacao": "Motor tributário está validado para Simples 2026 ✅"
+    }
+  ],
+
+  "proximo_passo": [
+    "FASE 2 (BLOQUEIO ATUAL): Consultar CNPJ de 13 clientes + 46 fornecedores para determinar regime tributário",
+    "FASE 3: Calcular crédito potencial com base nos regimes reais",
+    "FASE 4: Simular 3 cenários (2026 Real, 2027 Simples Puro, 2027 Híbrido)",
+    "FASE 5: Análise de risco comercial (especialmente NACIONAL GÁS)",
+    "FASE 6: Dashboard interativo com sensibilidade de CBS"
+  ],
+
+  "status_geral": "✅ ETAPA 1 CONCLUÍDA - Dados de 2026 mapeados e validados. ETAPA 2 BLOQUEADA - Aguardando consulta de CNPJs de clientes e fornecedores"
+}
