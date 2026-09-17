@@ -112,16 +112,6 @@ class ResultadoSimulacao(BaseModel):
 # ROTAS
 # =========================================================================
 
-@app.get("/")
-def read_root():
-    """Health check"""
-    return {
-        "status": "online",
-        "servico": "Motor de Decisão Tributária",
-        "versao": "0.4.0",
-        "timestamp": datetime.now().isoformat()
-    }
-
 @app.get("/health")
 def health_check():
     """Verificação de saúde da API"""
