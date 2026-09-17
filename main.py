@@ -23,9 +23,13 @@ from dotenv import load_dotenv
 try:
     from pdf_parser import PDFParser, ParserPGDAS, ParserAcompanhamento, processar_pdf
     PDF_PARSER_AVAILABLE = True
-except ImportError:
+    print("✅ pdf_parser.py carregado com sucesso")
+except ImportError as e:
     PDF_PARSER_AVAILABLE = False
-    print("⚠️ AVISO: pdf_parser.py não encontrado. Funcionalidade de upload desativada.")
+    print(f"⚠️ AVISO: pdf_parser.py não encontrado - {str(e)}")
+except Exception as e:
+    PDF_PARSER_AVAILABLE = False
+    print(f"⚠️ ERRO ao carregar pdf_parser.py: {str(e)}")
 
 # =========================================================================
 # CONFIGURAÇÃO
@@ -144,8 +148,24 @@ def health_check():
     return {
         "status": "healthy",
         "upload_dir": str(UPLOAD_DIR.exists()),
-        "reports_dir": str(REPORTS_DIR.exists())
+        "reports_dir": str(REPORTS_DIR.exists()),
+        "pdf_parser_available": PDF_PARSER_AVAILABLE
     }
+
+@app.get("/api/status")
+def api_status():
+    """Status da API e dependências"""
+    return JSONResponse(
+        status_code=200,
+        content={
+            "versao": "0.5.0",
+            "status": "online",
+            "pdf_parser_disponivel": PDF_PARSER_AVAILABLE,
+            "upload_dir_existe": UPLOAD_DIR.exists(),
+            "reports_dir_existe": REPORTS_DIR.exists(),
+            "timestamp": datetime.now().isoformat()
+        }
+    )
 
 @app.post("/api/upload")
 async def upload_arquivos(
@@ -160,9 +180,12 @@ async def upload_arquivos(
     - status: "pendente_processamento"
     """
     if not PDF_PARSER_AVAILABLE:
-        raise HTTPException(
+        return JSONResponse(
             status_code=503,
-            detail="Funcionalidade de PDF desativada. pdf_parser não está disponível."
+            content={
+                "erro": "PDF Parser não disponível. Verifique se pdfplumber está instalado.",
+                "status": "erro_indisponivel"
+            }
         )
 
     upload_id = str(uuid.uuid4())
@@ -204,9 +227,13 @@ async def processar_pdfs_endpoint(upload_id: str):
     Retorna lista de dados extraídos de cada documento
     """
     if not PDF_PARSER_AVAILABLE:
-        raise HTTPException(
+        return JSONResponse(
             status_code=503,
-            detail="Funcionalidade de PDF desativada."
+            content={
+                "erro": "PDF Parser não disponível",
+                "upload_id": upload_id,
+                "status": "erro_indisponivel"
+            }
         )
 
     upload_subdir = UPLOAD_DIR / upload_id
